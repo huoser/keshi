@@ -935,9 +935,41 @@ body {
 .empty .e-icon { font-size: 60px; display: block; margin-bottom: 16px; opacity: 0.7; }
 .empty p { font-size: 15px; }
 .empty small { font-size: 13px; color: rgba(107,114,128,0.7); margin-top: 8px; display: block; }
+
+/* ===== LOADING ===== */
+#loadingOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(247,242,234,0.92);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.loading-spinner {
+  width: 48px; height: 48px;
+  border: 4px solid var(--border);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 15px; color: var(--teal); font-weight: 600; letter-spacing: 1px; }
 </style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">☁️ 同步云端数据中…</div>
+</div>
+
 
 <!-- HEADER -->
 <div class="header">
@@ -1136,17 +1168,46 @@ let editRows  = [];
 let pendDate  = null;
 
 // ──────────────────────────────────────────────
-// STORAGE
+// FIREBASE + STORAGE
 // ──────────────────────────────────────────────
-function store() {
-  try { return JSON.parse(localStorage.getItem('tpk') || '{}'); }
-  catch(e) { return {}; }
-}
+const firebaseConfig = {
+  apiKey: "AIzaSyDMSnRLauIbEPPHf0WZ4raJ8RKU76aylRQ",
+  authDomain: "keshi-7010c.firebaseapp.com",
+  projectId: "keshi-7010c",
+  storageBucket: "keshi-7010c.firebasestorage.app",
+  messagingSenderId: "401210171294",
+  appId: "1:401210171294:web:b75974a1c665993704808f"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const DOC_REF = db.collection('checkins').doc('allData');
+
+let _cache = {}; // 内存缓存，替代 localStorage
+
+function store() { return _cache; }
+
 function save(data) {
-  try { localStorage.setItem('tpk', JSON.stringify(data)); } catch(e){}
+  _cache = data;
+  DOC_REF.set({ tpk: JSON.stringify(data) })
+    .catch(e => console.error('Firebase保存失败:', e));
 }
-function getDay(ds) { return store()[ds] || null; }
-function setDay(ds, rec) { const d = store(); d[ds] = rec; save(d); }
+
+function getDay(ds) { return _cache[ds] || null; }
+function setDay(ds, rec) { const d = {..._cache}; d[ds] = rec; save(d); }
+
+async function loadFromFirebase() {
+  try {
+    const snap = await DOC_REF.get();
+    if (snap.exists && snap.data().tpk) {
+      _cache = JSON.parse(snap.data().tpk);
+    } else {
+      _cache = {};
+    }
+  } catch(e) {
+    console.error('Firebase读取失败:', e);
+    _cache = {};
+  }
+}
 
 function getClasses(ds) {
   const rec = getDay(ds);
@@ -1573,12 +1634,13 @@ function toast(msg, type='') {
 // ──────────────────────────────────────────────
 // INIT
 // ──────────────────────────────────────────────
-(function init() {
+(async function init() {
+  document.getElementById('loadingOverlay').style.display = 'flex';
   updateHeader();
   setInterval(updateHeader, 60000);
+  await loadFromFirebase();
+  document.getElementById('loadingOverlay').style.display = 'none';
   renderWeek();
-
-  // Default stats range = current week
   const ws = getWeekStart(new Date());
   const we = new Date(ws); we.setDate(we.getDate()+6);
   document.getElementById('sStart').value = fmt(ws);
