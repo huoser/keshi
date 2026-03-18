@@ -1220,6 +1220,17 @@ body {
                 <span class="sf-chip" data-val="9">晚自习②</span>
               </div>
             </div>
+            <!-- Class Number -->
+            <div class="sf-chip-group">
+              <div class="sf-chip-title">🏫 班级</div>
+              <div class="sf-chips" id="chipClass">
+                <span class="sf-chip active" data-val="all">全部</span>
+                <span class="sf-chip" data-val="1">1班</span>
+                <span class="sf-chip" data-val="2">2班</span>
+                <span class="sf-chip" data-val="3">3班</span>
+                <span class="sf-chip" data-val="4">4班</span>
+              </div>
+            </div>
           </div>
         </div>
         <!-- Action row -->
@@ -1716,10 +1727,11 @@ const chipState = {
   chipGrade:   new Set(['all']),
   chipWeekday: new Set(['all']),
   chipPeriod:  new Set(['all']),
+  chipClass:   new Set(['all']),
 };
 
 function initChips() {
-  ['chipSubject','chipGrade','chipWeekday','chipPeriod'].forEach(id => {
+  ['chipSubject','chipGrade','chipWeekday','chipPeriod','chipClass'].forEach(id => {
     document.getElementById(id).addEventListener('click', function(e) {
       const chip = e.target.closest('.sf-chip');
       if (!chip) return;
@@ -1756,6 +1768,7 @@ function updateActiveTags() {
     chipGrade:   { prefix:'年级', fmt: v => v },
     chipWeekday: { prefix:'星期', fmt: v => '周'+WEEKDAY_NAMES[+v] },
     chipPeriod:  { prefix:'节次', fmt: v => PERIOD_NAMES[+v] || v },
+    chipClass:   { prefix:'班级', fmt: v => v+'班' },
   };
   const tags = [];
   for (const [id, cfg] of Object.entries(defs)) {
@@ -1771,7 +1784,7 @@ function updateActiveTags() {
 }
 
 function resetFilters() {
-  ['chipSubject','chipGrade','chipWeekday','chipPeriod'].forEach(id => {
+  ['chipSubject','chipGrade','chipWeekday','chipPeriod','chipClass'].forEach(id => {
     const set = chipState[id];
     set.clear(); set.add('all');
     const el = document.getElementById(id);
@@ -1797,6 +1810,7 @@ function runStats() {
   const fsGrade   = chipState.chipGrade;
   const fsWeekday = chipState.chipWeekday;
   const fsPeriod  = chipState.chipPeriod;
+  const fsClass   = chipState.chipClass;
 
   const data = store();
   const rows = [];
@@ -1820,6 +1834,7 @@ function runStats() {
     if (!fsSubj.has('all'))   filtered = filtered.filter(c => fsSubj.has(c.subject));
     if (!fsGrade.has('all'))  filtered = filtered.filter(c => fsGrade.has(c.grade));
     if (!fsPeriod.has('all')) filtered = filtered.filter(c => fsPeriod.has(String(c.period)));
+    if (!fsClass.has('all'))  filtered = filtered.filter(c => fsClass.has(String(c.classNum)));
 
     if (!filtered.length) continue;
     const dayCounts = {};
