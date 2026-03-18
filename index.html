@@ -435,21 +435,145 @@ body {
   to   { opacity:1; transform: translateY(0); }
 }
 
+/* ===== STATS FILTER CHIPS ===== */
 .stats-filters {
   background: white;
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
-  padding: 24px 28px;
+  padding: 0;
   margin-bottom: 24px;
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  overflow: hidden;
 }
-.fg { display: flex; flex-direction: column; gap: 8px; }
-.fg label { font-size: 12px; font-weight: 700; color: var(--ink-light); letter-spacing: 0.5px; }
-.fi {
+.sf-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.sf-row:last-child { border-bottom: none; }
+.sf-row-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-light);
+  letter-spacing: 0.5px;
+  min-width: 80px;
+  padding-top: 10px;
+  flex-shrink: 0;
+}
+.sf-row-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.sf-sep { color: var(--gray); font-size: 20px; padding-top: 22px; }
+.sf-chips-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+}
+.sf-chip-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sf-chip-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray);
+  min-width: 52px;
+  letter-spacing: 0.5px;
+}
+.sf-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sf-chip {
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  color: var(--ink-light);
+  background: var(--paper);
+  transition: all 0.18s;
+  user-select: none;
+  letter-spacing: 0.3px;
+}
+.sf-chip:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-pale); }
+.sf-chip.active {
+  background: var(--teal);
+  color: white;
+  border-color: var(--teal);
+  box-shadow: 0 2px 8px rgba(26,95,122,0.25);
+}
+.sf-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--paper);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sf-active-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.sf-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--amber-pale);
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid rgba(217,119,6,0.25);
+  letter-spacing: 0.3px;
+}
+.btn-reset {
+  padding: 9px 18px;
+  background: var(--paper-dark);
+  color: var(--ink-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-reset:hover { background: var(--red-pale); color: var(--red); border-color: rgba(185,28,28,0.2); }
+/* Date preset buttons */
+.sf-date-body { flex-direction: column; align-items: flex-start; gap: 12px; }
+.sf-date-inputs { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.sf-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.sf-preset {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid rgba(26,95,122,0.25);
+  color: var(--teal);
+  background: var(--teal-pale);
+  font-family: inherit;
+  transition: all 0.18s;
+  letter-spacing: 0.3px;
+}
+.sf-preset:hover { background: var(--teal); color: white; border-color: var(--teal); box-shadow: 0 2px 8px rgba(26,95,122,0.25); }
+.sf-preset.active { background: var(--teal); color: white; border-color: var(--teal); box-shadow: 0 2px 8px rgba(26,95,122,0.25); }
+/* Multi-select chip checkmark */
+.sf-chip.active:not([data-val="all"])::before { content: '✓ '; font-size: 10px; opacity: 0.85; }
+.fg { display: flex; flex-direction: column; gap: 6px; }
+.fg label { font-size: 11px; font-weight: 700; color: var(--gray); letter-spacing: 0.5px; }
   padding: 10px 14px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-xs);
@@ -1015,26 +1139,97 @@ body {
   <div class="tab-panel" id="tab-stats">
     <div class="stats-wrap">
       <div class="stats-filters">
-        <div class="fg">
-          <label>📅 开始日期</label>
-          <input type="date" class="fi" id="sStart">
+        <!-- Row 1: Date range -->
+        <div class="sf-row">
+          <div class="sf-row-label">🗓️ 日期范围</div>
+          <div class="sf-row-body sf-date-body">
+            <div class="sf-presets">
+              <button class="sf-preset" onclick="setDatePreset('week')">本周</button>
+              <button class="sf-preset" onclick="setDatePreset('lastweek')">上周</button>
+              <button class="sf-preset" onclick="setDatePreset('month')">本月</button>
+              <button class="sf-preset" onclick="setDatePreset('lastmonth')">上月</button>
+              <button class="sf-preset" onclick="setDatePreset('7')">近7天</button>
+              <button class="sf-preset" onclick="setDatePreset('30')">近30天</button>
+              <button class="sf-preset" onclick="setDatePreset('90')">近3个月</button>
+            </div>
+            <div class="sf-date-inputs">
+              <div class="fg">
+                <label>开始日期</label>
+                <input type="date" class="fi" id="sStart">
+              </div>
+              <div class="sf-sep">—</div>
+              <div class="fg">
+                <label>结束日期</label>
+                <input type="date" class="fi" id="sEnd">
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="fg">
-          <label>📅 结束日期</label>
-          <input type="date" class="fi" id="sEnd">
+        <!-- Row 2: Chip filters -->
+        <div class="sf-row">
+          <div class="sf-row-label">🔀 自由组合</div>
+          <div class="sf-row-body sf-chips-wrap">
+            <!-- Subject -->
+            <div class="sf-chip-group">
+              <div class="sf-chip-title">📚 科目</div>
+              <div class="sf-chips" id="chipSubject">
+                <span class="sf-chip active" data-val="all">全部</span>
+                <span class="sf-chip" data-val="市场营销">市场营销</span>
+                <span class="sf-chip" data-val="基础会计">基础会计</span>
+                <span class="sf-chip" data-val="计算机应用">计算机应用</span>
+                <span class="sf-chip" data-val="晚自习">晚自习</span>
+                <span class="sf-chip" data-val="代课">代课</span>
+              </div>
+            </div>
+            <!-- Grade -->
+            <div class="sf-chip-group">
+              <div class="sf-chip-title">🎓 年级</div>
+              <div class="sf-chips" id="chipGrade">
+                <span class="sf-chip active" data-val="all">全部</span>
+                <span class="sf-chip" data-val="高一">高一</span>
+                <span class="sf-chip" data-val="高二">高二</span>
+                <span class="sf-chip" data-val="高三">高三</span>
+              </div>
+            </div>
+            <!-- Weekday -->
+            <div class="sf-chip-group">
+              <div class="sf-chip-title">📆 星期</div>
+              <div class="sf-chips" id="chipWeekday">
+                <span class="sf-chip active" data-val="all">全部</span>
+                <span class="sf-chip" data-val="1">周一</span>
+                <span class="sf-chip" data-val="2">周二</span>
+                <span class="sf-chip" data-val="3">周三</span>
+                <span class="sf-chip" data-val="4">周四</span>
+                <span class="sf-chip" data-val="5">周五</span>
+                <span class="sf-chip" data-val="6">周六</span>
+              </div>
+            </div>
+            <!-- Period -->
+            <div class="sf-chip-group">
+              <div class="sf-chip-title">⏰ 节次</div>
+              <div class="sf-chips" id="chipPeriod">
+                <span class="sf-chip active" data-val="all">全部</span>
+                <span class="sf-chip" data-val="1">第1节</span>
+                <span class="sf-chip" data-val="2">第2节</span>
+                <span class="sf-chip" data-val="3">第3节</span>
+                <span class="sf-chip" data-val="4">第4节</span>
+                <span class="sf-chip" data-val="5">第5节</span>
+                <span class="sf-chip" data-val="6">第6节</span>
+                <span class="sf-chip" data-val="7">第7节</span>
+                <span class="sf-chip" data-val="8">晚自习①</span>
+                <span class="sf-chip" data-val="9">晚自习②</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="fg">
-          <label>📚 科目筛选</label>
-          <select class="fi" id="sSubject">
-            <option value="all">全部科目</option>
-            <option value="市场营销">市场营销</option>
-            <option value="基础会计">基础会计</option>
-            <option value="计算机应用">计算机应用</option>
-            <option value="晚自习">晚自习</option>
-            <option value="代课">代课</option>
-          </select>
+        <!-- Action row -->
+        <div class="sf-action-row">
+          <div class="sf-active-tags" id="sfActiveTags"></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-shrink:0">
+            <button class="btn-reset" onclick="resetFilters()">↺ 重置</button>
+            <button class="btn-query" onclick="runStats()">🔍 统计查询</button>
+          </div>
         </div>
-        <button class="btn-query" onclick="runStats()">🔍 统计查询</button>
       </div>
       <div id="statsOutput">
         <div class="empty">
@@ -1475,15 +1670,133 @@ document.getElementById('editOverlay').addEventListener('click', function(e){ if
 document.getElementById('confirmOverlay').addEventListener('click', function(e){ if(e.target===this) closeConfirm(); });
 
 // ──────────────────────────────────────────────
+// DATE PRESETS
+// ──────────────────────────────────────────────
+function setDatePreset(type) {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let s, e;
+  if (type === 'week') {
+    s = getWeekStart(today);
+    e = new Date(s); e.setDate(e.getDate()+6);
+  } else if (type === 'lastweek') {
+    e = new Date(getWeekStart(today)); e.setDate(e.getDate()-1);
+    s = getWeekStart(e);
+  } else if (type === 'month') {
+    s = new Date(today.getFullYear(), today.getMonth(), 1);
+    e = new Date(today.getFullYear(), today.getMonth()+1, 0);
+  } else if (type === 'lastmonth') {
+    s = new Date(today.getFullYear(), today.getMonth()-1, 1);
+    e = new Date(today.getFullYear(), today.getMonth(), 0);
+  } else {
+    const days = +type;
+    e = new Date(today);
+    s = new Date(today); s.setDate(s.getDate() - days + 1);
+  }
+  document.getElementById('sStart').value = fmt(s);
+  document.getElementById('sEnd').value   = fmt(e);
+  // Highlight active preset button
+  document.querySelectorAll('.sf-preset').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// Clear active preset if user manually edits date inputs
+['sStart','sEnd'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    document.querySelectorAll('.sf-preset').forEach(b => b.classList.remove('active'));
+  });
+});
+
+// ──────────────────────────────────────────────
+// FILTER CHIP STATE  (multi-select)
+// ──────────────────────────────────────────────
+// Each group stores a Set of selected values; 'all' means no filter.
+const chipState = {
+  chipSubject: new Set(['all']),
+  chipGrade:   new Set(['all']),
+  chipWeekday: new Set(['all']),
+  chipPeriod:  new Set(['all']),
+};
+
+function initChips() {
+  ['chipSubject','chipGrade','chipWeekday','chipPeriod'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      const chip = e.target.closest('.sf-chip');
+      if (!chip) return;
+      const val = chip.dataset.val;
+      const set = chipState[id];
+
+      if (val === 'all') {
+        // Click "全部" → reset to all-only
+        set.clear(); set.add('all');
+      } else {
+        set.delete('all');
+        if (set.has(val)) {
+          set.delete(val);
+          if (set.size === 0) set.add('all'); // nothing left → back to all
+        } else {
+          set.add(val);
+        }
+      }
+      // Sync DOM
+      this.querySelectorAll('.sf-chip').forEach(c => {
+        c.classList.toggle('active', set.has(c.dataset.val));
+      });
+      updateActiveTags();
+    });
+  });
+}
+
+const WEEKDAY_NAMES = ['','一','二','三','四','五','六'];
+const PERIOD_NAMES  = {1:'第1节',2:'第2节',3:'第3节',4:'第4节',5:'第5节',6:'第6节',7:'第7节',8:'晚自习①',9:'晚自习②'};
+
+function updateActiveTags() {
+  const defs = {
+    chipSubject: { prefix:'科目', fmt: v => v },
+    chipGrade:   { prefix:'年级', fmt: v => v },
+    chipWeekday: { prefix:'星期', fmt: v => '周'+WEEKDAY_NAMES[+v] },
+    chipPeriod:  { prefix:'节次', fmt: v => PERIOD_NAMES[+v] || v },
+  };
+  const tags = [];
+  for (const [id, cfg] of Object.entries(defs)) {
+    const set = chipState[id];
+    if (set.has('all')) continue;
+    const vals = [...set].map(cfg.fmt).join('、');
+    tags.push(cfg.prefix + '：' + vals);
+  }
+  const el = document.getElementById('sfActiveTags');
+  el.innerHTML = tags.length
+    ? tags.map(t => `<span class="sf-tag">✦ ${t}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--gray);font-style:italic">当前：显示全部条件</span>';
+}
+
+function resetFilters() {
+  ['chipSubject','chipGrade','chipWeekday','chipPeriod'].forEach(id => {
+    const set = chipState[id];
+    set.clear(); set.add('all');
+    const el = document.getElementById(id);
+    el.querySelectorAll('.sf-chip').forEach(c => c.classList.remove('active'));
+    el.querySelector('[data-val="all"]').classList.add('active');
+  });
+  document.querySelectorAll('.sf-preset').forEach(b => b.classList.remove('active'));
+  updateActiveTags();
+  toast('↺ 筛选条件已重置', '');
+}
+
+// ──────────────────────────────────────────────
 // STATISTICS
 // ──────────────────────────────────────────────
 function runStats() {
   const start = document.getElementById('sStart').value;
   const end   = document.getElementById('sEnd').value;
-  const subj  = document.getElementById('sSubject').value;
 
   if (!start || !end) { toast('⚠️ 请选择日期范围', 'warn'); return; }
   if (start > end)    { toast('⚠️ 开始日期不能晚于结束日期', 'warn'); return; }
+
+  const fsSubj    = chipState.chipSubject;
+  const fsGrade   = chipState.chipGrade;
+  const fsWeekday = chipState.chipWeekday;
+  const fsPeriod  = chipState.chipPeriod;
 
   const data = store();
   const rows = [];
@@ -1494,12 +1807,20 @@ function runStats() {
   const d1 = new Date(end+'T00:00:00');
 
   for (let d = new Date(d0); d <= d1; d.setDate(d.getDate()+1)) {
+    // Weekday multi-filter
+    if (!fsWeekday.has('all') && !fsWeekday.has(String(d.getDay()))) continue;
+
     const ds = fmt(d);
     const rec = data[ds];
     if (!rec || !rec.checkedIn) continue;
     checkedDays++;
     const cls = rec.classes || clone(TPL[d.getDay()]||[]);
-    const filtered = subj==='all' ? cls : cls.filter(c=>c.subject===subj);
+
+    let filtered = cls;
+    if (!fsSubj.has('all'))   filtered = filtered.filter(c => fsSubj.has(c.subject));
+    if (!fsGrade.has('all'))  filtered = filtered.filter(c => fsGrade.has(c.grade));
+    if (!fsPeriod.has('all')) filtered = filtered.filter(c => fsPeriod.has(String(c.period)));
+
     if (!filtered.length) continue;
     const dayCounts = {};
     filtered.forEach(c => {
@@ -1638,6 +1959,8 @@ function toast(msg, type='') {
   document.getElementById('loadingOverlay').style.display = 'flex';
   updateHeader();
   setInterval(updateHeader, 60000);
+  initChips();
+  updateActiveTags();
   await loadFromFirebase();
   document.getElementById('loadingOverlay').style.display = 'none';
   renderWeek();
@@ -1645,6 +1968,9 @@ function toast(msg, type='') {
   const we = new Date(ws); we.setDate(we.getDate()+6);
   document.getElementById('sStart').value = fmt(ws);
   document.getElementById('sEnd').value   = fmt(we);
+  // Highlight 本周 preset by default
+  const presets = document.querySelectorAll('.sf-preset');
+  if (presets.length) presets[0].classList.add('active');
 })();
 </script>
 </body>
