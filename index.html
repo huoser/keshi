@@ -1322,7 +1322,7 @@ const SUBJ_META = {
   '代课'     : { chip:'chip-substitute', bar:'be', sum:'c-eve', emoji:'📝' },
 };
 
-// Weekly recurring template (0=Sun … 6=Sat)
+// Weekly recurring template (0=Sun … 6=Sat)  【旧课表，3月25日前】
 const TPL = {
   0: [],
   1: [
@@ -1364,6 +1364,28 @@ const TPL = {
     {period:6, subject:'市场营销',  grade:'高三', classNum:1},
   ],
 };
+
+// 【新课表，从2026-03-26（周四）起生效】
+const TPL_NEW = {
+  0: [],
+  1: [],
+  2: [
+    {period:3, subject:'市场营销', grade:'高二', classNum:4},
+    {period:4, subject:'市场营销', grade:'高二', classNum:4},
+    {period:5, subject:'基础会计', grade:'高一', classNum:1},
+    {period:6, subject:'基础会计', grade:'高一', classNum:1},
+  ],
+  3: [
+    {period:2, subject:'市场营销', grade:'高二', classNum:4},
+    {period:3, subject:'基础会计', grade:'高一', classNum:1},
+  ],
+  4: [],
+  5: [],
+  6: [],
+};
+
+// 新课表切换日期（含当天起使用新课表）
+const TPL_CUTOVER = '2026-03-26';
 
 // ──────────────────────────────────────────────
 // STATE
@@ -1419,7 +1441,8 @@ function getClasses(ds) {
   const rec = getDay(ds);
   if (rec && rec.classes !== undefined) return rec.classes;
   const dow = new Date(ds + 'T00:00:00').getDay();
-  return clone(TPL[dow] || []);
+  const tpl = ds >= TPL_CUTOVER ? TPL_NEW : TPL;
+  return clone(tpl[dow] || []);
 }
 function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
@@ -1601,7 +1624,8 @@ function doCheckIn() {
   rec.checkedInTime = t;
   if (!rec.classes) {
     const dow = new Date(pendDate+'T00:00:00').getDay();
-    rec.classes = clone(TPL[dow]||[]);
+    const tpl = pendDate >= TPL_CUTOVER ? TPL_NEW : TPL;
+    rec.classes = clone(tpl[dow]||[]);
   }
   setDay(pendDate, rec);
   closeConfirm();
