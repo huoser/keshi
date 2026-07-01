@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -135,7 +135,9 @@ body {
   margin: 0 auto;
   display: flex;
   padding: 0 36px;
+  align-items: center;
 }
+.nav-spacer { flex: 1; }
 .nav-tab {
   padding: 16px 26px;
   cursor: pointer;
@@ -155,6 +157,29 @@ body {
   color: var(--teal);
   border-bottom-color: var(--teal);
   font-weight: 700;
+}
+.backup-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.backup-btn {
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--ink-light);
+  border-radius: var(--radius-xs);
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.backup-btn:hover {
+  background: var(--teal-pale);
+  color: var(--teal);
+  border-color: rgba(26,95,122,0.2);
 }
 
 /* ===== MAIN ===== */
@@ -228,7 +253,10 @@ body {
 @media (max-width: 640px) {
   .days-grid { grid-template-columns: repeat(2, 1fr); }
   .main { padding: 20px 16px; }
-  .nav-inner { padding: 0 16px; }
+  .nav-inner { padding: 0 16px; flex-wrap: wrap; }
+  .nav-tab { padding: 14px 12px; font-size: 13px; }
+  .backup-actions { width: 100%; padding: 0 0 10px; }
+  .backup-btn { flex: 1; }
   .header { padding: 20px; }
 }
 
@@ -1110,6 +1138,11 @@ body {
   <div class="nav-inner">
     <div class="nav-tab active" data-tab="week" onclick="switchTab('week')">📅 本周课表</div>
     <div class="nav-tab" data-tab="stats" onclick="switchTab('stats')">📊 课时统计</div>
+    <div class="nav-spacer"></div>
+    <div class="backup-actions">
+      <button class="backup-btn" onclick="exportBackup()">导出备份</button>
+      <button class="backup-btn" onclick="document.getElementById('importFile').click()">导入恢复</button>
+    </div>
   </div>
 </nav>
 
@@ -1277,6 +1310,7 @@ body {
 </div>
 
 <div class="toast" id="toast"></div>
+<input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importBackup(event)">
 
 <script>
 // ──────────────────────────────────────────────
@@ -1421,30 +1455,172 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const DOC_REF = db.collection('checkins').doc('allData');
 
-let _cache = {}; // 内存缓存，替代 localStorage
+const LOCAL_DATA_KEY = 'keshi_checkins_backup_v2';
+const LOCAL_SNAPSHOT_KEY = 'keshi_checkins_snapshots_v2';
+let _cache = {};
+let _firebaseReady = false;
 
 function store() { return _cache; }
 
-function save(data) {
-  _cache = data;
-  DOC_REF.set({ tpk: JSON.stringify(data) })
-    .catch(e => console.error('Firebase保存失败:', e));
+function cloneData(data) {
+  return JSON.parse(JSON.stringify(data || {}));
+}
+
+function isRecordMap(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+  return Object.keys(obj).some(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && obj[k] && typeof obj[k] === 'object');
+}
+
+function parseMaybeJson(value) {
+  if (!value || typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value);
+  } catch(e) {
+    return null;
+  }
+}
+
+function extractRecordMap(payload) {
+  if (!payload) return null;
+  if (typeof payload === 'string') return extractRecordMap(parseMaybeJson(payload));
+  if (payload.tpk) return extractRecordMap(payload.tpk);
+  if (payload.data) return extractRecordMap(payload.data);
+  if (payload.checkins) return extractRecordMap(payload.checkins);
+  if (isRecordMap(payload)) return payload;
+  if (typeof payload === 'object') {
+    for (const value of Object.values(payload)) {
+      const found = extractRecordMap(value);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function mergeMissing(base, extra) {
+  const out = cloneData(base);
+  let added = 0;
+  Object.entries(extra || {}).forEach(([date, rec]) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date) && rec && typeof rec === 'object' && !out[date]) {
+      out[date] = cloneData(rec);
+      added++;
+    }
+  });
+  return { data: out, added };
+}
+
+function mergeData(...sources) {
+  return sources.reduce((acc, src) => {
+    Object.entries(src || {}).forEach(([date, rec]) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date) && rec && typeof rec === 'object') {
+        acc[date] = cloneData(rec);
+      }
+    });
+    return acc;
+  }, {});
+}
+
+function saveLocalCopy(data) {
+  try {
+    localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(data || {}));
+  } catch(e) {
+    console.warn('本地备份保存失败:', e);
+  }
+}
+
+function readLocalCopy() {
+  return extractRecordMap(localStorage.getItem(LOCAL_DATA_KEY)) || {};
+}
+
+function readLegacyLocalData() {
+  const merged = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || key === LOCAL_DATA_KEY || key === LOCAL_SNAPSHOT_KEY) continue;
+      const found = extractRecordMap(localStorage.getItem(key));
+      if (found) Object.assign(merged, found);
+    }
+  } catch(e) {
+    console.warn('旧本地数据扫描失败:', e);
+  }
+  return merged;
+}
+
+function addSnapshot(data, reason) {
+  try {
+    const list = parseMaybeJson(localStorage.getItem(LOCAL_SNAPSHOT_KEY)) || [];
+    list.unshift({ at: new Date().toISOString(), reason, data: cloneData(data) });
+    localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify(list.slice(0, 20)));
+  } catch(e) {
+    console.warn('历史快照保存失败:', e);
+  }
+}
+
+async function fetchCloudData() {
+  const snap = await DOC_REF.get();
+  if (snap.exists && snap.data().tpk) return extractRecordMap(snap.data().tpk) || {};
+  return {};
+}
+
+async function save(data, reason='manual-save') {
+  if (!_firebaseReady) {
+    toast('云端还没同步完成，暂时不能保存', 'warn');
+    return false;
+  }
+  try {
+    addSnapshot(_cache, 'before-' + reason);
+    const cloudData = await fetchCloudData();
+    const merged = mergeData(cloudData, data);
+    _cache = merged;
+    saveLocalCopy(merged);
+    await DOC_REF.set({
+      tpk: JSON.stringify(merged),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return true;
+  } catch(e) {
+    console.error('Firebase保存失败:', e);
+    toast('保存失败：云端没有写入，请稍后重试', 'warn');
+    return false;
+  }
 }
 
 function getDay(ds) { return _cache[ds] || null; }
-function setDay(ds, rec) { const d = {..._cache}; d[ds] = rec; save(d); }
+async function setDay(ds, rec) {
+  const d = {..._cache};
+  d[ds] = rec;
+  return save(d, 'set-day-' + ds);
+}
 
 async function loadFromFirebase() {
   try {
-    const snap = await DOC_REF.get();
-    if (snap.exists && snap.data().tpk) {
-      _cache = JSON.parse(snap.data().tpk);
-    } else {
-      _cache = {};
+    const cloudData = await fetchCloudData();
+    _firebaseReady = true;
+
+    let merged = cloneData(cloudData);
+    const localData = readLocalCopy();
+    const legacyData = readLegacyLocalData();
+    const localMerge = mergeMissing(merged, localData);
+    merged = localMerge.data;
+    const legacyMerge = mergeMissing(merged, legacyData);
+    merged = legacyMerge.data;
+
+    _cache = merged;
+    saveLocalCopy(merged);
+
+    const added = localMerge.added + legacyMerge.added;
+    if (added > 0) {
+      await DOC_REF.set({
+        tpk: JSON.stringify(merged),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      toast(`已自动找回 ${added} 天本地记录并同步`, 'success');
     }
   } catch(e) {
     console.error('Firebase读取失败:', e);
-    _cache = {};
+    _firebaseReady = false;
+    _cache = readLocalCopy();
+    toast('云端读取失败：已显示本地备份，暂时禁止保存', 'warn');
   }
 }
 
@@ -1618,14 +1794,16 @@ function refreshCard(ds) {
 // ──────────────────────────────────────────────
 // CHECK-IN
 // ──────────────────────────────────────────────
-function handleCheckIn(ds) {
+async function handleCheckIn(ds) {
   const rec = getDay(ds);
   if (rec && rec.checkedIn) {
     if (confirm('已经打卡，是否撤销打卡？')) {
       rec.checkedIn = false; rec.checkedInTime = null;
-      setDay(ds, rec);
-      refreshCard(ds);
-      toast('已撤销打卡', 'warn');
+      const ok = await setDay(ds, rec);
+      if (ok) {
+        refreshCard(ds);
+        toast('已撤销打卡', 'warn');
+      }
     }
     return;
   }
@@ -1640,7 +1818,7 @@ function handleCheckIn(ds) {
   document.getElementById('confirmOverlay').classList.add('open');
 }
 
-function doCheckIn() {
+async function doCheckIn() {
   if (!pendDate) return;
   const n = new Date();
   const t = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
@@ -1652,7 +1830,8 @@ function doCheckIn() {
     rec.classes = getClasses(pendDate); 
   }
   
-  setDay(pendDate, rec);
+  const ok = await setDay(pendDate, rec);
+  if (!ok) return;
   closeConfirm();
   refreshCard(pendDate);
   setTimeout(() => {
@@ -1713,12 +1892,13 @@ function addRow() {
   renderEditList();
 }
 
-function saveEdit() {
+async function saveEdit() {
   editRows.sort((a,b)=>a.period-b.period);
   let rec = getDay(editDate) || {};
   rec.classes = clone(editRows);
   rec.note = document.getElementById('editNote').value.trim();
-  setDay(editDate, rec);
+  const ok = await setDay(editDate, rec);
+  if (!ok) return;
   closeEdit();
   refreshCard(editDate);
   toast('✅ 课程已保存', 'success');
@@ -1994,6 +2174,55 @@ function renderStats(rows, total, subTotals, days) {
       b.style.width = b.dataset.w + '%';
     });
   }, 80);
+}
+
+// ──────────────────────────────────────────────
+// BACKUP IMPORT / EXPORT
+// ──────────────────────────────────────────────
+function exportBackup() {
+  const payload = {
+    app: 'keshi',
+    exportedAt: new Date().toISOString(),
+    count: Object.keys(_cache || {}).length,
+    data: cloneData(_cache)
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `keshi-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('已导出备份文件', 'success');
+}
+
+async function importBackup(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const imported = extractRecordMap(parseMaybeJson(text));
+    if (!isRecordMap(imported)) {
+      toast('导入失败：没有找到课时数据', 'warn');
+      return;
+    }
+    if (!confirm(`将导入 ${Object.keys(imported).length} 天记录。同日期会以文件内容为准，继续吗？`)) return;
+
+    addSnapshot(_cache, 'before-import');
+    const merged = mergeData(_cache, imported);
+    const ok = await save(merged, 'import');
+    if (!ok) return;
+    renderWeek();
+    toast('导入完成，已同步云端', 'success');
+  } catch(e) {
+    console.error('导入失败:', e);
+    toast('导入失败：文件格式不正确', 'warn');
+  }
 }
 
 // ──────────────────────────────────────────────
