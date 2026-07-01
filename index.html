@@ -1444,6 +1444,7 @@ let pendDate  = null;
 const CLOUDBASE_ENV_ID = 'huoser-d4g5n62nl5ccf3d76';
 const CLOUDBASE_COLLECTION = 'checkins';
 const CLOUDBASE_DOC_ID = 'allData';
+const CLOUDBASE_CLIENT_ID = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjlkMWRjMzFlLWI0ZDAtNDQ4Yi1hNzZmLWIwY2M2M2Q4MTQ5OCJ9.eyJpc3MiOiJodHRwczovL2h1b3Nlci1kNGc1bjYybmw1Y2NmM2Q3Ni5hcC1zaGFuZ2hhaS50Y2ItYXBpLnRlbmNlbnRjbG91ZGFwaS5jb20iLCJzdWIiOiJhbm9uIiwiYXVkIjoiaHVvc2VyLWQ0ZzVuNjJubDVjY2YzZDc2IiwiZXhwIjo0MDg2NjA4MTA2LCJpYXQiOjE3ODI5MjQ5MDYsIm5vbmNlIjoiTlQtYzZXZFVRUVdPakxLLTZSdEUtUSIsImF0X2hhc2giOiJOVC1jNldkVVFRV09qTEstNlJ0RS1RIiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6Imh1b3Nlci1kNGc1bjYybmw1Y2NmM2Q3NiIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJ1c2VyX3R5cGUiOiIiLCJjbGllbnRfdHlwZSI6ImNsaWVudF91c2VyIiwiaXNfc3lzdGVtX2FkbWluIjpmYWxzZX0.pvhNwraTQMqodEJS-8QyHIprPnqug36XYWFFGw6trJrfDmY7v6hYfuV8rDUz8Nndxj0e60EzDUg2B8qzFecjWy-rag3vGw2dNf4Ey1-zZcOg1TTqflxPzMqVBbXAYiifwmx1F4GnwatRlrRUye4vscd4RlP_p_uMc4R_rOHrYlNpVXIUkFvrbnZdMYeCP0HOK4z2IdKd76P9g9FxG9W13aL9QIpJIIMDE22SCPbTCHIrKXcASI6-VLmHIIX79m6ovx9oFU0EGLg3EpLKxSpeGqQSo6SlZYjTapVqupBUJF2P2ZhunfkDxzC-6QTel1cJ-Rh5Xg2zrZwQFeOBRZoBMw';
 const CLOUDBASE_SDK_URLS = [
   'https://esm.sh/@cloudbase/js-sdk@3.6.2?bundle',
   'https://esm.run/@cloudbase/js-sdk@3.6.2'
@@ -1565,7 +1566,10 @@ async function initCloudBase() {
   if (_cloudDoc) return;
   const cloudbaseSdk = await loadCloudBaseSdk();
 
-  const app = cloudbaseSdk.init({ env: CLOUDBASE_ENV_ID });
+  const app = cloudbaseSdk.init({
+    env: CLOUDBASE_ENV_ID,
+    clientId: CLOUDBASE_CLIENT_ID
+  });
   const auth = app.auth({ persistence: 'local' });
 
   try {
