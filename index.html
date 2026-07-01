@@ -1112,8 +1112,6 @@ body {
 .loading-text { font-size: 15px; color: var(--teal); font-weight: 600; letter-spacing: 1px; }
 </style>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <div id="loadingOverlay">
@@ -1441,24 +1439,22 @@ let editRows  = [];
 let pendDate  = null;
 
 // ──────────────────────────────────────────────
-// FIREBASE + STORAGE
+// CLOUDBASE + STORAGE
 // ──────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyDMSnRLauIbEPPHf0WZ4raJ8RKU76aylRQ",
-  authDomain: "keshi-7010c.firebaseapp.com",
-  projectId: "keshi-7010c",
-  storageBucket: "keshi-7010c.firebasestorage.app",
-  messagingSenderId: "401210171294",
-  appId: "1:401210171294:web:b75974a1c665993704808f"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const DOC_REF = db.collection('checkins').doc('allData');
+const CLOUDBASE_ENV_ID = 'huoser-d4g5n62nl5ccf3d76';
+const CLOUDBASE_COLLECTION = 'checkins';
+const CLOUDBASE_DOC_ID = 'allData';
+const CLOUDBASE_SDK_URLS = [
+  'https://esm.sh/@cloudbase/js-sdk@3.6.2?bundle',
+  'https://esm.run/@cloudbase/js-sdk@3.6.2'
+];
 
 const LOCAL_DATA_KEY = 'keshi_checkins_backup_v2';
 const LOCAL_SNAPSHOT_KEY = 'keshi_checkins_snapshots_v2';
 let _cache = {};
-let _firebaseReady = false;
+let _cloudReady = false;
+let _cloudDoc = null;
+let _cloudbaseSdkPromise = null;
 
 function store() { return _cache; }
 
@@ -1557,13 +1553,76 @@ function addSnapshot(data, reason) {
 }
 
 async function fetchCloudData() {
-  const snap = await DOC_REF.get();
-  if (snap.exists && snap.data().tpk) return extractRecordMap(snap.data().tpk) || {};
+  await initCloudBase();
+  const snap = await _cloudDoc.get();
+  const doc = Array.isArray(snap.data) ? snap.data[0] : snap.data;
+  if (doc && doc.tpk) return extractRecordMap(doc.tpk) || {};
+  if (doc) return extractRecordMap(doc) || {};
   return {};
 }
 
+async function initCloudBase() {
+  if (_cloudDoc) return;
+  const cloudbaseSdk = await loadCloudBaseSdk();
+
+  const app = cloudbaseSdk.init({ env: CLOUDBASE_ENV_ID });
+  const auth = app.auth({ persistence: 'local' });
+
+  try {
+    const loginState = auth.getLoginState ? await auth.getLoginState() : null;
+    if (!loginState) {
+      if (auth.anonymousAuthProvider) {
+        await auth.anonymousAuthProvider().signIn();
+      } else if (auth.signInAnonymously) {
+        await auth.signInAnonymously();
+      }
+    }
+  } catch(e) {
+    console.warn('CloudBase 匿名登录失败，请确认控制台已开启匿名登录:', e);
+  }
+
+  const db = app.database();
+  _cloudDoc = db.collection(CLOUDBASE_COLLECTION).doc(CLOUDBASE_DOC_ID);
+}
+
+function loadCloudBaseSdk() {
+  if (_cloudbaseSdkPromise) return _cloudbaseSdkPromise;
+  _cloudbaseSdkPromise = (async () => {
+    let lastError = null;
+    for (const url of CLOUDBASE_SDK_URLS) {
+      try {
+        const mod = await import(url);
+        return mod.default || mod.cloudbase || mod;
+      } catch(e) {
+        lastError = e;
+        console.warn('CloudBase SDK 加载失败，尝试下一个地址:', url, e);
+      }
+    }
+    throw lastError || new Error('CloudBase SDK 加载失败');
+  })();
+  return _cloudbaseSdkPromise;
+}
+
+async function writeCloudData(data) {
+  await initCloudBase();
+  const payload = {
+    tpk: JSON.stringify(data || {}),
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    return await _cloudDoc.set(payload);
+  } catch(e1) {
+    try {
+      return await _cloudDoc.set({ data: payload });
+    } catch(e2) {
+      console.error('CloudBase写入失败:', e1, e2);
+      throw e2;
+    }
+  }
+}
+
 async function save(data, reason='manual-save') {
-  if (!_firebaseReady) {
+  if (!_cloudReady) {
     toast('云端还没同步完成，暂时不能保存', 'warn');
     return false;
   }
@@ -1573,13 +1632,10 @@ async function save(data, reason='manual-save') {
     const merged = mergeData(cloudData, data);
     _cache = merged;
     saveLocalCopy(merged);
-    await DOC_REF.set({
-      tpk: JSON.stringify(merged),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    await writeCloudData(merged);
     return true;
   } catch(e) {
-    console.error('Firebase保存失败:', e);
+    console.error('CloudBase保存失败:', e);
     toast('保存失败：云端没有写入，请稍后重试', 'warn');
     return false;
   }
@@ -1592,10 +1648,10 @@ async function setDay(ds, rec) {
   return save(d, 'set-day-' + ds);
 }
 
-async function loadFromFirebase() {
+async function loadFromCloudBase() {
   try {
     const cloudData = await fetchCloudData();
-    _firebaseReady = true;
+    _cloudReady = true;
 
     let merged = cloneData(cloudData);
     const localData = readLocalCopy();
@@ -1610,15 +1666,12 @@ async function loadFromFirebase() {
 
     const added = localMerge.added + legacyMerge.added;
     if (added > 0) {
-      await DOC_REF.set({
-        tpk: JSON.stringify(merged),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      await writeCloudData(merged);
       toast(`已自动找回 ${added} 天本地记录并同步`, 'success');
     }
   } catch(e) {
-    console.error('Firebase读取失败:', e);
-    _firebaseReady = false;
+    console.error('CloudBase读取失败:', e);
+    _cloudReady = false;
     _cache = readLocalCopy();
     toast('云端读取失败：已显示本地备份，暂时禁止保存', 'warn');
   }
@@ -2256,7 +2309,7 @@ function toast(msg, type='') {
   setInterval(updateHeader, 60000);
   initChips();
   updateActiveTags();
-  await loadFromFirebase();
+  await loadFromCloudBase();
   document.getElementById('loadingOverlay').style.display = 'none';
   renderWeek();
   const ws = getWeekStart(new Date());
