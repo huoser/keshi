@@ -1444,7 +1444,7 @@ let pendDate  = null;
 const CLOUDBASE_ENV_ID = 'huoser-d4g5n62nl5ccf3d76';
 const CLOUDBASE_COLLECTION = 'checkins';
 const CLOUDBASE_DOC_ID = 'allData';
-const CLOUDBASE_CLIENT_ID = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjlkMWRjMzFlLWI0ZDAtNDQ4Yi1hNzZmLWIwY2M2M2Q4MTQ5OCJ9.eyJpc3MiOiJodHRwczovL2h1b3Nlci1kNGc1bjYybmw1Y2NmM2Q3Ni5hcC1zaGFuZ2hhaS50Y2ItYXBpLnRlbmNlbnRjbG91ZGFwaS5jb20iLCJzdWIiOiJhbm9uIiwiYXVkIjoiaHVvc2VyLWQ0ZzVuNjJubDVjY2YzZDc2IiwiZXhwIjo0MDg2NjA4MTA2LCJpYXQiOjE3ODI5MjQ5MDYsIm5vbmNlIjoiTlQtYzZXZFVRUVdPakxLLTZSdEUtUSIsImF0X2hhc2giOiJOVC1jNldkVVFRV09qTEstNlJ0RS1RIiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6Imh1b3Nlci1kNGc1bjYybmw1Y2NmM2Q3NiIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJ1c2VyX3R5cGUiOiIiLCJjbGllbnRfdHlwZSI6ImNsaWVudF91c2VyIiwiaXNfc3lzdGVtX2FkbWluIjpmYWxzZX0.pvhNwraTQMqodEJS-8QyHIprPnqug36XYWFFGw6trJrfDmY7v6hYfuV8rDUz8Nndxj0e60EzDUg2B8qzFecjWy-rag3vGw2dNf4Ey1-zZcOg1TTqflxPzMqVBbXAYiifwmx1F4GnwatRlrRUye4vscd4RlP_p_uMc4R_rOHrYlNpVXIUkFvrbnZdMYeCP0HOK4z2IdKd76P9g9FxG9W13aL9QIpJIIMDE22SCPbTCHIrKXcASI6-VLmHIIX79m6ovx9oFU0EGLg3EpLKxSpeGqQSo6SlZYjTapVqupBUJF2P2ZhunfkDxzC-6QTel1cJ-Rh5Xg2zrZwQFeOBRZoBMw';
+const CLOUDBASE_ACCESS_KEY = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjlkMWRjMzFlLWI0ZDAtNDQ4Yi1hNzZmLWIwY2M2M2Q4MTQ5OCJ9.eyJpc3MiOiJodHRwczovL2h1b3Nlci1kNGc1bjYybmw1Y2NmM2Q3Ni5hcC1zaGFuZ2hhaS50Y2ItYXBpLnRlbmNlbnRjbG91ZGFwaS5jb20iLCJzdWIiOiJhbm9uIiwiYXVkIjoiaHVvc2VyLWQ0ZzVuNjJubDVjY2YzZDc2IiwiZXhwIjo0MDg2NjA4MTA2LCJpYXQiOjE3ODI5MjQ5MDYsIm5vbmNlIjoiTlQtYzZXZFVRUVdPakxLLTZSdEUtUSIsImF0X2hhc2giOiJOVC1jNldkVVFRV09qTEstNlJ0RS1RIiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6Imh1b3Nlci1kNGc1bjYybmw1Y2NmM2Q3NiIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJ1c2VyX3R5cGUiOiIiLCJjbGllbnRfdHlwZSI6ImNsaWVudF91c2VyIiwiaXNfc3lzdGVtX2FkbWluIjpmYWxzZX0.pvhNwraTQMqodEJS-8QyHIprPnqug36XYWFFGw6trJrfDmY7v6hYfuV8rDUz8Nndxj0e60EzDUg2B8qzFecjWy-rag3vGw2dNf4Ey1-zZcOg1TTqflxPzMqVBbXAYiifwmx1F4GnwatRlrRUye4vscd4RlP_p_uMc4R_rOHrYlNpVXIUkFvrbnZdMYeCP0HOK4z2IdKd76P9g9FxG9W13aL9QIpJIIMDE22SCPbTCHIrKXcASI6-VLmHIIX79m6ovx9oFU0EGLg3EpLKxSpeGqQSo6SlZYjTapVqupBUJF2P2ZhunfkDxzC-6QTel1cJ-Rh5Xg2zrZwQFeOBRZoBMw';
 const CLOUDBASE_SDK_URLS = [
   'https://esm.sh/@cloudbase/js-sdk@3.6.2?bundle',
   'https://esm.run/@cloudbase/js-sdk@3.6.2'
@@ -1458,6 +1458,15 @@ let _cloudDoc = null;
 let _cloudbaseSdkPromise = null;
 
 function store() { return _cache; }
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`${label}超时，请检查网络或腾讯云配置`)), ms);
+    })
+  ]);
+}
 
 function cloneData(data) {
   return JSON.parse(JSON.stringify(data || {}));
@@ -1555,7 +1564,7 @@ function addSnapshot(data, reason) {
 
 async function fetchCloudData() {
   await initCloudBase();
-  const snap = await _cloudDoc.get();
+  const snap = await withTimeout(_cloudDoc.get(), 10000, '读取腾讯云数据');
   const doc = Array.isArray(snap.data) ? snap.data[0] : snap.data;
   if (doc && doc.tpk) return extractRecordMap(doc.tpk) || {};
   if (doc) return extractRecordMap(doc) || {};
@@ -1568,7 +1577,7 @@ async function initCloudBase() {
 
   const app = cloudbaseSdk.init({
     env: CLOUDBASE_ENV_ID,
-    clientId: CLOUDBASE_CLIENT_ID
+    accessKey: CLOUDBASE_ACCESS_KEY
   });
   const auth = app.auth({ persistence: 'local' });
 
@@ -1576,9 +1585,9 @@ async function initCloudBase() {
     const loginState = auth.getLoginState ? await auth.getLoginState() : null;
     if (!loginState) {
       if (auth.anonymousAuthProvider) {
-        await auth.anonymousAuthProvider().signIn();
+        await withTimeout(auth.anonymousAuthProvider().signIn(), 10000, '腾讯云匿名登录');
       } else if (auth.signInAnonymously) {
-        await auth.signInAnonymously();
+        await withTimeout(auth.signInAnonymously(), 10000, '腾讯云匿名登录');
       }
     }
   } catch(e) {
@@ -1595,7 +1604,7 @@ function loadCloudBaseSdk() {
     let lastError = null;
     for (const url of CLOUDBASE_SDK_URLS) {
       try {
-        const mod = await import(url);
+        const mod = await withTimeout(import(url), 12000, '加载CloudBase SDK');
         return mod.default || mod.cloudbase || mod;
       } catch(e) {
         lastError = e;
@@ -1614,10 +1623,10 @@ async function writeCloudData(data) {
     updatedAt: new Date().toISOString()
   };
   try {
-    return await _cloudDoc.set(payload);
+    return await withTimeout(_cloudDoc.set(payload), 10000, '写入腾讯云数据');
   } catch(e1) {
     try {
-      return await _cloudDoc.set({ data: payload });
+      return await withTimeout(_cloudDoc.set({ data: payload }), 10000, '写入腾讯云数据');
     } catch(e2) {
       console.error('CloudBase写入失败:', e1, e2);
       throw e2;
@@ -1640,7 +1649,7 @@ async function save(data, reason='manual-save') {
     return true;
   } catch(e) {
     console.error('CloudBase保存失败:', e);
-    toast('保存失败：云端没有写入，请稍后重试', 'warn');
+    toast('保存失败：' + (e.message || '云端没有写入'), 'warn');
     return false;
   }
 }
@@ -1677,7 +1686,7 @@ async function loadFromCloudBase() {
     console.error('CloudBase读取失败:', e);
     _cloudReady = false;
     _cache = readLocalCopy();
-    toast('云端读取失败：已显示本地备份，暂时禁止保存', 'warn');
+    toast('云端读取失败：' + (e.message || '已显示本地备份，暂时禁止保存'), 'warn');
   }
 }
 
